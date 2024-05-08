@@ -37,5 +37,5 @@ def download_images(url, folder='images'):
         print(f"Не удалось получить доступ к {url}: {e}")
 
 # URL сайта
-url = 'https://oto-hotels.com/'
+url = 'https://commons.wikimedia.org/wiki/Main_Page'
 download_images(url)
