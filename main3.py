@@ -1,33 +1,41 @@
 import os
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 def download_images(url, folder='images'):
-    # Создание папки, если она не существует
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    # Получение HTML-контента страницы
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Проверяем, что запрос завершился успешно
 
-    # Поиск всех тегов img и извлечение атрибутов src
-    images = soup.find_all('img')
-    for img in images:
-        src = img.get('src')
-        if src:
-            # Проверка, что src ссылается на изображение
-            if not src.startswith(('http://', 'https://')):
-                src = url + '/' + src
-            image_response = requests.get(src, stream=True)
-            if image_response.status_code == 200:
-                # Извлечение имени файла из URL
-                filename = os.path.join(folder, src.split('/')[-1])
-                # Сохранение изображения в файл
+        soup = BeautifulSoup(response.content, 'html.parser')
+        images = soup.find_all('img')
+
+        for img in images:
+            src = img.get('src')
+            if not src:
+                print("Отсутствует атрибут src в теге img.")
+                continue
+
+            # Создание полного URL для изображения
+            src = urljoin(url, src)
+
+            try:
+                image_response = requests.get(src, stream=True)
+                image_response.raise_for_status()  # Проверяем, что запрос завершился успешно
+                filename = os.path.join(folder, src.split('/')[-1].split("?")[0])  # Игнорируем параметры после '?'
                 with open(filename, 'wb') as f:
-                    for chunk in image_response:
+                    for chunk in image_response.iter_content(chunk_size=8192):
                         f.write(chunk)
+                print(f"Изображение {filename} успешно сохранено.")
+            except requests.exceptions.RequestException as e:
+                print(f"Ошибка при загрузке изображения {src}: {e}")
+    except requests.exceptions.RequestException as e:
+        print(f"Не удалось получить доступ к {url}: {e}")
 
-# URL сайта, с которого будут загружаться изображения
-url = 'https://illarionov-marketig.ru'
+# URL сайта
+url = 'https://oto-hotels.com/'
 download_images(url)
