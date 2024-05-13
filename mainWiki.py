@@ -2,44 +2,57 @@ from selenium import webdriver
 import time
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-import random
 
-# Создаем экземпляр браузера
-browser = webdriver.Chrome()
 
-# Заходим на главную страницу русской Википедии
-browser.get("https://ru.wikipedia.org/wiki/%D0%97%D0%B0%D0%B3%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F_%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D0%B0")
+def main():
+    # Настройка драйвера
+    browser = webdriver.Chrome()
+    browser.get("https://ru.wikipedia.org/wiki/Заглавная_страница")
 
-# Проверяем по заголовку, что это действительно Википедия
-assert "Википедия" in browser.title
+    # Список для хранения посещенных страниц
+    visited_links = []
 
-# Ждем 5 секунд
-time.sleep(5)
+    # Получаем запрос от пользователя
+    initial_query = input("Введите поисковый запрос: ")
+    search_box = browser.find_element(By.ID, "searchInput")
+    search_box.send_keys(initial_query + Keys.RETURN)
 
-# Находим поле поиска по его ID
-search_box = browser.find_element(By.ID, "searchInput")
+    # Добавляем текущую ссылку в список посещенных
+    visited_links.append(browser.current_url)
 
-# Вводим текст "Солнечная система" и отправляем запрос
-search_box.send_keys("Солнечная система")
-search_box.send_keys(Keys.RETURN)
+    while True:
+        action = input("Выберите действие: 1 - листать параграфы, 2 - перейти на связанную страницу, 3 - выйти: ")
 
-# Ждем 30 секунд, чтобы страница загрузилась
-time.sleep(30)
+        if action == "1":
+            # Листаем параграфы текущей статьи
+            paragraphs = browser.find_elements(By.TAG_NAME, "p")
+            for paragraph in paragraphs:
+                print(paragraph.text)
+                input("Нажмите Enter для продолжения чтения...")
 
-# Собираем все элементы с тегом 'div'
-hatnotes = []
-for element in browser.find_elements(By.TAG_NAME, "div"):
-    # Получаем класс элемента
-    cl = element.get_attribute("class")
-    if cl == "hatnote navigation-not-searchable":
-        hatnotes.append(element)
+        elif action == "2":
+            # Показываем список связанных страниц
+            links = browser.find_elements(By.CSS_SELECTOR,
+                                          "#mw-content-text [href^='/wiki/']:not([href*='redlink']):not([href*=':'])")
+            for i, link in enumerate(links[:10]):  # Покажем первые 10 ссылок
+                print(f"{i + 1}: {link.text} ({link.get_attribute('href')})")
 
-# Если список hatnotes не пуст, выбираем случайный элемент и переходим по ссылке
-if hatnotes:
-    hatnote = random.choice(hatnotes)
-    link = hatnote.find_element(By.TAG_NAME, "a").get_attribute("href")
-    browser.get(link)
+            link_choice = input(
+                f"Выберите страницу от 1 до {min(10, len(links))} для перехода или введите 0 для отмены: ")
+            if link_choice.isdigit() and 0 < int(link_choice) <= min(10, len(links)):
+                links[int(link_choice) - 1].click()
+                visited_links.append(browser.current_url)
+                time.sleep(2)  # Даем время странице для загрузки
 
-# Закрываем браузер
-browser.quit()
-print(hatnotes)
+        elif action == "3":
+            # Выводим посещенные ссылки и выходим
+            print("Посещенные страницы:")
+            for link in visited_links:
+                print(link)
+            break
+
+    browser.quit()
+
+
+if __name__ == "__main__":
+    main()
