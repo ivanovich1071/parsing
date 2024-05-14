@@ -1,57 +1,117 @@
 from selenium import webdriver
-import time
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import time
+
+
+def initialize_driver():
+    driver = webdriver.Chrome()
+    return driver
+
+
+def search_wikipedia(driver, query):
+    driver.get("https://ru.wikipedia.org/wiki/Заглавная_страница")
+    time.sleep(2)
+    search_box = driver.find_element(By.NAME, "search")
+    search_box.send_keys(query)
+    search_box.send_keys(Keys.RETURN)
+    time.sleep(2)
+
+    # Проверяем наличие результатов поиска и открываем первый результат
+    search_results = driver.find_elements(By.CSS_SELECTOR, "ul.mw-search-results li a")
+    if search_results:
+        first_result = search_results[0]
+        first_result.click()
+        time.sleep(2)
+    else:
+        print("Нет результатов для данного запроса.")
+        return False
+    return True
+
+
+def get_paragraphs(driver):
+    paragraphs = driver.find_elements(By.CSS_SELECTOR, "p")
+    return [p.text for p in paragraphs if p.text]
+
+
+def print_paragraphs(driver):
+    paragraphs = get_paragraphs(driver)
+    for i, paragraph in enumerate(paragraphs):
+        print(f"Параграф {i + 1}:\n{paragraph}\n")
+        user_input = input("Нажмите Enter для продолжения или 'esc' для выхода: ").strip().lower()
+        if user_input == 'esc':
+            break
+
+
+def get_related_links(driver):
+    links = driver.find_elements(By.CSS_SELECTOR, "#mw-content-text .mw-parser-output a")
+    related_links = []
+    for link in links:
+        href = link.get_attribute("href")
+        if href and "wiki" in href and href not in related_links:
+            related_links.append(href)
+            if len(related_links) >= 10:
+                break
+    return related_links
+
+
+def print_related_links(driver):
+    related_links = get_related_links(driver)
+    for i, link in enumerate(related_links):
+        print(f"{i + 1}. {link}")
+    return related_links
 
 
 def main():
-    # Настройка драйвера
-    browser = webdriver.Chrome()
-    browser.get("https://ru.wikipedia.org/wiki/Заглавная_страница")
-
-    # Список для хранения посещенных страниц
+    driver = initialize_driver()
     visited_links = []
 
-    # Получаем запрос от пользователя
-    initial_query = input("Введите поисковый запрос: ")
-    search_box = browser.find_element(By.ID, "searchInput")
-    search_box.send_keys(initial_query + Keys.RETURN)
+    try:
+        while True:
+            query = input("Введите запрос для поиска на Википедии: ").strip()
+            if not query:
+                print("Пожалуйста, введите запрос.")
+                continue
 
-    # Добавляем текущую ссылку в список посещенных
-    visited_links.append(browser.current_url)
+            if not search_wikipedia(driver, query):
+                continue
+            visited_links.append(driver.current_url)
 
-    while True:
-        action = input("Выберите действие: 1 - листать параграфы, 2 - перейти на связанную страницу, 3 - выйти: ")
+            while True:
+                print("Выберите действие:")
+                print("1. Листать параграфы текущей статьи")
+                print("2. Просмотреть список связанных страниц")
+                print("3. Ввести новый запрос")
+                print("4. Выйти из программы")
 
-        if action == "1":
-            # Листаем параграфы текущей статьи
-            paragraphs = browser.find_elements(By.TAG_NAME, "p")
-            for paragraph in paragraphs:
-                print(paragraph.text)
-                input("Нажмите Enter для продолжения чтения...")
+                choice = input("Ваш выбор (1, 2, 3, 4): ").strip()
 
-        elif action == "2":
-            # Показываем список связанных страниц
-            links = browser.find_elements(By.CSS_SELECTOR,
-                                          "#mw-content-text [href^='/wiki/']:not([href*='redlink']):not([href*=':'])")
-            for i, link in enumerate(links[:10]):  # Покажем первые 10 ссылок
-                print(f"{i + 1}: {link.text} ({link.get_attribute('href')})")
+                if choice == '1':
+                    print_paragraphs(driver)
+                elif choice == '2':
+                    related_links = print_related_links(driver)
+                    link_choice = input("Введите номер страницы для перехода или 'esc' для выхода: ").strip().lower()
+                    if link_choice == 'esc':
+                        continue
+                    elif link_choice.isdigit() and 1 <= int(link_choice) <= len(related_links):
+                        driver.get(related_links[int(link_choice) - 1])
+                        visited_links.append(driver.current_url)
+                    else:
+                        print("Неверный выбор. Попробуйте снова.")
+                elif choice == '3':
+                    break  # Возвращаемся для ввода нового запроса
+                elif choice == '4':
+                    print("Выход из программы.")
+                    print("Посещенные ссылки:")
+                    for link in visited_links:
+                        print(link)
+                    return
 
-            link_choice = input(
-                f"Выберите страницу от 1 до {min(10, len(links))} для перехода или введите 0 для отмены: ")
-            if link_choice.isdigit() and 0 < int(link_choice) <= min(10, len(links)):
-                links[int(link_choice) - 1].click()
-                visited_links.append(browser.current_url)
-                time.sleep(2)  # Даем время странице для загрузки
+                else:
+                    print("Неверный выбор. Попробуйте снова.")
 
-        elif action == "3":
-            # Выводим посещенные ссылки и выходим
-            print("Посещенные страницы:")
-            for link in visited_links:
-                print(link)
-            break
-
-    browser.quit()
+    finally:
+        driver.quit()
 
 
 if __name__ == "__main__":
