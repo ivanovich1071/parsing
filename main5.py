@@ -29,8 +29,8 @@ with open('products.csv', mode='w', newline='', encoding='utf-8') as file:
 
         # Получаем цену товара
         try:
-            price_element = driver.find_element(By.CLASS_NAME, 'style_price__Y3vB_')
-            price = price_element.text
+            price_element = driver.find_element(By.CLASS_NAME, 'ProductPrice_productPrice__thjM7')
+            price = price_element.text.replace('<!-- -->', '')
         except:
             price = "Не удалось найти цену"
 
